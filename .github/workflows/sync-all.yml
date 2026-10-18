@@ -1,0 +1,34 @@
+name: Sync availability
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'blocked.json'
+      - '.github/workflows/sync-all.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sync-availability
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Read calendars
+        env:
+          ICAL_FEEDS: ${{ secrets.ICAL_FEEDS }}
+          INNKEEP_URL: ${{ secrets.INNKEEP_URL }}
+          INNKEEP_KEY: ${{ secrets.INNKEEP_KEY }}
+        run: node scripts/sync-all.js
+      - name: Save changes
+        run: |
+          git config user.name "calendar-sync"
+          git config user.email "calendar-sync@users.noreply.github.com"
+          git add busy.json
+          git diff --cached --quiet || (git commit -m "Update booked dates" && git pull --rebase && git push)
